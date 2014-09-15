@@ -207,6 +207,52 @@ else {
     }
 
     shouldBe('context.getError()', 'context.NO_ERROR');
+
+    testStencilRef(true, 1);
+    testStencilRef(false, 1);
+}
+
+function testStencilRef(createStencilBuffer, refValue) {
+    // ES 2.0.25 - 4.1.4 Stencil Test - page 95
+    // Queries of 'ref' are clamped to the range [0, 2^s - 1], where s is the number of stencil bits.
+    debug("");
+    debug("Check stencil reference values, stencil: " + createStencilBuffer);
+
+    var canvas = document.createElement('canvas');
+    document.body.appendChild(canvas);
+    context = wtu.create3DContext(canvas, { stencil: createStencilBuffer });
+    if (!context) {
+        testFailed("Creating a context should suceed");
+        return;
+    }
+
+    var contextAttribs = context.getContextAttributes();
+    if (!contextAttribs.stencil && createStencilBuffer) {
+        testPassed("No stencil buffer provided, this is okay");
+        return;
+    }
+
+    if (contextAttribs.stencil && !createStencilBuffer) {
+        testFailed("WebGL implementation provided a stencil buffer when it should not have");
+        return;
+    }
+
+    if (createStencilBuffer)
+        shouldBe('context.getParameter(context.STENCIL_BITS) > 0', 'true');
+    else
+        shouldBe('context.getParameter(context.STENCIL_BITS) == 0', 'true');
+
+    var stencilBits = context.getParameter(context.STENCIL_BITS);
+    var refQueryMask = (1 << stencilBits) - 1;
+    var expectedValue = refValue & refQueryMask;
+
+    context.stencilFuncSeparate(context.FRONT, context.GEQUAL, refValue, refValue);
+    shouldBe('context.getParameter(context.STENCIL_REF)', expectedValue.toString());
+
+    context.stencilFuncSeparate(context.BACK, context.GEQUAL, refValue, refValue);
+    shouldBe('context.getParameter(context.STENCIL_BACK_REF)', expectedValue.toString());
+
+    wtu.glErrorShouldBe(context, context.NO_ERROR, "should be no errors");
 }
 
 debug("");
